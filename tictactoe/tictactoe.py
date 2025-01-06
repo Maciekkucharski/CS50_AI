@@ -2,7 +2,6 @@
 Tic Tac Toe Player
 """
 import copy
-import math
 from typing import List
 
 X = "X"
@@ -23,15 +22,12 @@ def player(board: List[List]):
     """
     Returns player who has the next turn on a board.
     """
-    x = 0
-    o = 0
+    counter = 0
     for rows in board:
         for cell in rows:
-            if cell == X:
-                x+=1
-            elif cell == O:
-                o+=1
-    if x>o:
+            if cell != EMPTY:
+                counter+=1
+    if counter%2:
         return O
     else:
         return X
@@ -53,6 +49,10 @@ def result(board: List[List], action):
     Returns the board that results from making move (i, j) on the board.
     """
     new_board = copy.deepcopy(board)
+    if new_board[action[0]][action[1]] != EMPTY:
+        raise Exception("invalid move, field taken")
+    elif not (0 <= action[0] <= 2 and 0 <= action[1] <= 2):
+        raise Exception("invalid move, field Non existant")
     new_board[action[0]][action[1]] = player(new_board)
     return new_board
 
@@ -83,7 +83,7 @@ def terminal(board):
     """
     Returns True if game is over, False otherwise.
     """
-    return not actions(board) or winner(board)
+    return True if not actions(board) or winner(board) else False
 
 def utility(board):
     """
@@ -105,7 +105,7 @@ def minimax(board):
     def min_val(board):
         if terminal(board):
             return utility(board)
-        v = float("-inf")
+        v = float("inf")
         for act in actions(board):
             v = min(v, max_val(result(board, act)))
         return v
@@ -113,12 +113,22 @@ def minimax(board):
     def max_val(board):
         if terminal(board):
             return utility(board)
-        v = float("inf")
+        v = float("-inf")
         for act in actions(board):
             v = max(v, min_val(result(board, act)))
         return v
-
+    if terminal(board):
+        return None
     pl = player(board)
-    (action)
-    for a in actions(board):
+    moves = []
+    if pl == X:
+        for action in actions(board):
+            moves.append((min_val(result(board, action)), action))
+        return sorted(moves, key=lambda x: x[0], reverse=True)[0][1]
+    else:
+        for action in actions(board):
+            moves.append((max_val(result(board, action)), action))
+        return sorted(moves, key=lambda x: x[0], reverse=False)[0][1]
+
+
         
