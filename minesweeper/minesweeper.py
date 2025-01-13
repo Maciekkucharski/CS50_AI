@@ -1,7 +1,7 @@
 import itertools
 import random
-from typing import Set, List
-
+from typing import Set, List, Tuple
+import copy
 class Minesweeper():
     """
     Minesweeper game representation
@@ -90,8 +90,7 @@ class Sentence():
     A sentence consists of a set of board cells,
     and a count of the number of those cells which are mines.
     """
-
-    def __init__(self, cells: List[Set], count: int):
+    def __init__(self, cells: List[Tuple], count: int):
         self.cells = set(cells)
         self.count = count
 
@@ -101,12 +100,11 @@ class Sentence():
     def __str__(self):
         return f"{self.cells} = {self.count}"
 
-    def known_mines(self):
+    def known_mines(self)-> Set[Tuple]: 
         """
         Returns the set of all cells in self.cells known to be mines.
         """
         return self.cells if self.count == len(self.cells) else set()
-
 
     def known_safes(self):
         """
@@ -131,26 +129,21 @@ class Sentence():
         """
         if cell not in self.cells:
             return
-
+        self.cells.remove(cell)
 
 class MinesweeperAI():
     """
     Minesweeper game player
     """
-
     def __init__(self, height=8, width=8):
-
         # Set initial height and width
         self.height = height
         self.width = width
-
         # Keep track of which cells have been clicked on
         self.moves_made = set()
-
         # Keep track of cells known to be safe or mines
         self.mines = set()
         self.safes = set()
-
         # List of sentences about the game known to be true
         self.knowledge: List[Sentence] = []
 
@@ -189,7 +182,37 @@ class MinesweeperAI():
         """
         self.moves_made.add(cell)
         self.mark_safe(cell)
-        self.knowledge.append(Sentence([cell], count))
+        self.knowledge.append(self.create_sentence(cell, count))
+        changes = True
+        while changes:
+            changes = False
+            #Infere new sentences
+            for sentence in copy.deepcopy(self.knowledge):
+                    for sentence_2 in copy.deepcopy(self.knowledge):
+                        if sentence==sentence_2:
+                            continue
+                        sentence_difference = None
+                        infered_sentence = None
+                        if sentence_2.cells.issubset(sentence.cells):
+                            sentence_difference = sentence.cells.difference(sentence_2.cells)
+                            infered_sentence = Sentence(sentence_difference, sentence.count - sentence_2.count)
+                        elif sentence.cells.issubset(sentence_2.cells):
+                            sentence_difference = sentence_2.cells.difference(sentence.cells)
+                            infered_sentence = Sentence(sentence_difference, sentence_2.count - sentence.count)
+                        if infered_sentence and infered_sentence not in self.knowledge:
+                            self.knowledge.append(infered_sentence)
+                            changes = True
+            #mark known safe and mines fields and remove empty sentences
+            for sentence in copy.deepcopy(self.knowledge):
+                for save in sentence.known_safes():
+                    changes = True
+                    self.mark_safe(save)
+                for mine in sentence.known_mines():
+                    changes = True
+                    self.mark_mine(mine)
+            for sentence in copy.deepcopy(self.knowledge):
+                if not sentence.cells:
+                    self.knowledge.remove(sentence)
 
     def make_safe_move(self):
         """
@@ -200,7 +223,9 @@ class MinesweeperAI():
         This function may use the knowledge in self.mines, self.safes
         and self.moves_made, but should not modify any of those values.
         """
-        raise NotImplementedError
+        for safe in self.safes:
+            if safe not in self.moves_made:
+                return safe
 
     def make_random_move(self):
         """
@@ -209,4 +234,18 @@ class MinesweeperAI():
             1) have not already been chosen, and
             2) are not known to be mines
         """
-        raise NotImplementedError
+        moves = [(x,y) for x in range(self.height) for y in range(self.width)]
+        for move in moves:
+            if move not in self.moves_made and move not in self.mines:
+                return move
+
+    def create_sentence(self, cell: Set, count: int)-> Sentence:
+        cells = [(cell[0] + column, cell[1] + row) for row in range(-1, 2) for column in range(-1, 2) if 0<=cell[1]+row<self.width and 0<=cell[0]+column<self.height and not (cell[1] + row == cell[1] and cell[0]+column == cell[0])]
+        for new_cell in copy.deepcopy(cells):
+            if new_cell in self.safes:
+                cells.remove(new_cell)
+            if new_cell in self.mines:
+                cells.remove(new_cell)
+                count -=1
+        return Sentence(cells, count)
+
